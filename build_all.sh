@@ -9,7 +9,6 @@ config_get USER
 config_get USE_RTK_REPO
 config_get TARGET_BUILD_TYPE
 config_get BUILDTYPE_ANDROID
-config_get REALTEK_1395_CHIP
 MODULE_PATH=$ANDROIDDIR/out/target/product/$BUILDTYPE_ANDROID/system/vendor/modules
 
 
@@ -24,8 +23,8 @@ check_build_target()
 {
 	pushd $SCRIPTDIR > /dev/null
 	[ ! -d "$BOOTCODEDIR" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/bootcode -b $SDK_BRANCH
-	[ ! -d "$IMAGEDIR" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/image_file_creator -b $SDK_BRANCH
-	[ ! -d "$QASUPPLEMENT" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/qa_supplement -b $SDK_BRANCH
+	[ ! -d "$IMAGEDIR" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/image_file_creator -b master
+#	[ ! -d "$QASUPPLEMENT" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/qa_supplement -b $SDK_BRANCH
 	popd > /dev/null
 	return $ERR;
 }
@@ -33,7 +32,7 @@ check_build_target()
 target_build()
 {
 	pushd $BOOTCODEDIR > /dev/null
-		build_cmd ./build_rtk_lk.sh rtd1395 drm
+#		build_cmd ./build_rtk_lk.sh rtd1395 drm
 	popd > /dev/null
 
 	pushd $SCRIPTDIR > /dev/null
@@ -45,7 +44,7 @@ target_build()
 			[ ! -d "$IMAGEDIR" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/image_file_creator -b $SDK_BRANCH
 			build_cmd ./build_release_android.sh build
 			build_cmd ./build_release_linux_kernel.sh build
-			build_cmd ./widevine_so.sh
+#			build_cmd ./widevine_so.sh
 			build_cmd ./build_image.sh build
 			cp -f $IMAGEDIR/install.img $SCRIPTDIR/install.img-OTT-`date +%Y-%m-%d`
 		fi
