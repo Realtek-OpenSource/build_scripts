@@ -26,8 +26,8 @@ MODULE_PATH=$ANDROIDDIR/out/target/product/$BUILDTYPE_ANDROID/vendor/modules
 #------------------------------
 
 #export CCACHE=ccache
-export ARCH=arm64
-export CROSS_COMPILE="ccache asdk64-linux-"
+export ARCH=arm
+export CROSS_COMPILE="ccache arm-linux-gnueabi-"
 export KERNEL_IMAGE=Image
 #export AS=${CROSS_COMPILE}as
 #export LD=${CROSS_COMPILE}ld
@@ -38,14 +38,18 @@ export KERNEL_IMAGE=Image
 #export OBJCOPY=${CROSS_COMPILE}objcopy
 #export OBJDUMP=${CROSS_COMPILE}objdump
 
-export PATH=$TOOLCHAINDIR/asdk64-4.9.4-a53-EL-3.10-g2.19-a64nt-160307/bin:$PATH
+export PATH=$TOOLCHAINDIR/asdk-6.4.1-a53-EL-4.9-g2.26-a32nut-180831/bin:$PATH
 
-KERNELTOOLCHAIN=$TOOLCHAINDIR/asdk64-4.9.4-a53-EL-3.10-g2.19-a64nt-160307/bin
+KERNELTOOLCHAIN=$TOOLCHAINDIR/asdk-6.4.1-a53-EL-4.9-g2.26-a32nut-180831/bin
+
+KERNEL_TARGET_CHIP=thor
+ARCH_DIR=arm
+ANDROID_VERSION=9
 
 PARAGONDIR=$PHOENIXDIR/system/src/external/paragon
 EXT_DRIVERS=$PHOENIXDIR/system/src/drivers
 
-KERNEL_TARGET_CHIP_LIST="phoenix kylin"
+KERNEL_TARGET_CHIP_LIST="phoenix kylin thor"
 
 
 #------------------------------
@@ -98,17 +102,57 @@ checkout_kernel()
 #------------------------------
 
 
-
-
 build_kernel()
 {
     BUILD_PARAMETERS=$*
     pushd $KERNELDIR > /dev/null
-        make -j $MULTI $BUILD_PARAMETERS DTC_FLAGS="-p 8192"
+        make -j $MULTI $BUILD_PARAMETERS DTC_FLAGS="-p 8192 " DTC="$PHOENIXDIR/toolchain/dtb_overlay_tool/dtc"
         ERR=$?
     popd > /dev/null
     return $ERR
 }
+
+function kernel_config_check_android()
+{
+    pushd $KERNELDIR > /dev/null
+    ANDROID_VERSION=9
+    if [ $ANDROID_VERSION -le 8 ]; then
+        echo old android, choose binder ipc mode by config
+        if android_type_is_64; then
+            scripts/kconfig/merge_config.sh .config android/configs/android-64bit.cfg
+        else
+            android_type_is_32 && scripts/kconfig/merge_config.sh .config android/configs/android-32bit.cfg
+        fi
+    else
+        # starting from android 9.0, always use 64-bit binder ipc
+        echo new android, always sticks to 64-bit binder ipc
+        scripts/kconfig/merge_config.sh .config android/configs/android-64bit.cfg
+    fi
+    popd > /dev/null
+    return 0
+}
+
+function kernel_dtboimg()
+{
+
+        DTBO_DIR=$KERNELDIR/arch/$ARCH_DIR/boot/dts/realtek/rtd16xx/dtbo
+        DTBOCFG=${DTBO_DIR}/rtd-16xx-dtboimg.cfg
+
+    pushd $DTBO_DIR > /dev/null
+        DTC=$PHOENIXDIR/toolchain/dtb_overlay_tool/dtc
+        MKDTIMG=$PHOENIXDIR/toolchain/dtb_overlay_tool/mkdtimg
+        for d in *.dts; do
+            DTBO_NAME=${d:0:-4}
+            $DTC -W no-unit_address_vs_reg -@ -a 4 -O dtb -o ${DTBO_NAME}.dtbo $d
+        done
+        $MKDTIMG cfg_create ${DTBOCFG:0:-12}.dtboimg ${DTBOCFG}
+    popd > /dev/null
+
+
+}
+
+
+
 function build_cmd()
 {
     $@
@@ -122,10 +166,18 @@ function build_cmd()
     fi
 }
 
+
 build_external_modules()
 {
+
+    PARAGONDIR=$PLATFORMDIR/system/src/external/paragon
+    EXT_DRIVERS=$PLATFORMDIR/system/src/drivers
+    OPTEE_DRIVERS=$KERNELDIR/drivers/optee_linuxdriver
+
     export KERNELDIR
     export KERNELTOOLCHAIN
+    export TARGET_CHIP_ARCH
+
 if [ "$KERNEL_TARGET_CHIP" = "phoenix" ]; then
     if [ -d "$KERNELDIR/modules/mali" ]; then
     pushd $KERNELDIR
@@ -162,6 +214,8 @@ fi
     return $ERR;
 }
 
+
+
 clean_kernel()
 {
     pushd $KERNELDIR
@@ -185,6 +239,8 @@ else
 		;;
             build)
                 build_cmd build_kernel $KERNEL_IMAGE modules dtbs
+                build_cmd kernel_dtboimg
+                build_cmd kernel_config_check_android
                 build_cmd build_external_modules
                 ;;
             clean)
