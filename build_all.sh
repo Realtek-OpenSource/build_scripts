@@ -42,8 +42,8 @@ target_build()
 			cp -f $OPENWRTDIR/bin/rtd1295-glibc/install.img $SCRIPTDIR/install.img-OpenWRT-`date +%Y-%m-%d`
 		elif [ "$TARGET_BUILD_TYPE" == pure_android ]; then
 			[ ! -d "$IMAGEDIR" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/image_file_creator -b $SDK_BRANCH
-			build_cmd ./build_release_android.sh build
 			build_cmd ./build_release_linux_kernel.sh build
+			build_cmd ./build_release_android.sh build
 #			build_cmd ./widevine_so.sh
 			build_cmd ./build_image.sh build
 			cp -f $IMAGEDIR/install.img $SCRIPTDIR/install.img-OTT-`date +%Y-%m-%d`

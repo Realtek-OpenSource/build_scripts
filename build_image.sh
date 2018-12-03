@@ -6,19 +6,19 @@ ANDROIDDIR=$SCRIPTDIR/android
 IMAGEDIR=$SCRIPTDIR/image_file_creator
 TARGET_PACKAGE=package5
 PACKAGE_DIR=$IMAGEDIR/components/packages/$TARGET_PACKAGE
-DAILY_BUILD_DIR=$IMAGEDIR/dailybuild/android-8.0.0-b
-AUDIO_FW=$IMAGEDIR/dailybuild/audio-fw
+DAILY_BUILD_DIR=$IMAGEDIR/dailybuild/android-9.0.0-b
+AUDIO_FW=$IMAGEDIR/dailybuild/audio-fw/thor
 ERR=0
 
-KERNEL_BOOT_DIR=$KERNELDIR/arch/arm64/boot
+KERNEL_BOOT_DIR=$KERNELDIR/arch/arm/boot
 KUIMAGE=$KERNEL_BOOT_DIR/Image
-RESCUE_DTB=$KERNEL_BOOT_DIR/dts/realtek/rtd139x/rtd-1395-qa-rescue.dtb
+RESCUE_DTB=$KERNEL_BOOT_DIR/dts/realtek/rtd16xx/rtd-1619-qa-rescue.dtb
+DTBOIMG=$KERNEL_BOOT_DIR/dts/realtek/rtd16xx/dtbo/rtd-16xx.dtboimg
 AUDIOFW=$SCRIPTDIR/bluecore.audio.nofile
-AUDIOFW_ZIP=$AUDIO_FW/$TARGET_PACKAGE/bluecore.audio.SQA_PB.zip
+AUDIOFW_ZIP=$AUDIO_FW/$TARGET_PACKAGE/bluecore.audio.release.SQA_PB.zip
 AUDIOFW_MAP=$AUDIO_FW/$TARGET_PACKAGE/System.map.release.SQA.audio
 DVDPLAYER_BIN=$DAILY_BUILD_DIR/$TARGET_PACKAGE/system/bin/DvdPlayer
 ALSADAEMON_BIN=$DAILY_BUILD_DIR/$TARGET_PACKAGE/system/bin/ALSADaemon
-RtkKeyset_BIN=$DAILY_BUILD_DIR/$TARGET_PACKAGE/system/bin/RtkKeyset
 BUILDTYPE_ANDROID=`grep -s "lunch" build_release_android.sh | awk '{print $2}'`
 
 cd image_file_creator/components/packages/package5
@@ -30,7 +30,7 @@ source_android()
 {
     pushd $ANDROIDDIR
 	source ./env.sh
-	lunch hercules32-eng
+	lunch thor32-userdebug
 #	make -j $MULTI $VERBOSE
 #	ERR=$
     popd
@@ -51,19 +51,20 @@ function build_cmd()
 }
 
 # Set default build :
-[ "$IMAGE_DRAM_SIZE"        = "" ] && IMAGE_DRAM_SIZE=2GB
+[ "$IMAGE_DRAM_SIZE"        = "" ] && IMAGE_DRAM_SIZE=2GB-avb
 [ "$LAYOUT_TYPE"            = "" ] && LAYOUT_TYPE=emmc
 [ "$LAYOUT_SIZE"            = "" ] && LAYOUT_SIZE=8gb
 [ "$INSTALL_DTB"            = "" ] && INSTALL_DTB=1
 [ "$INSTALL_AVFILE_COUNT"   = "" ] && INSTALL_AVFILE_COUNT=1
-[ "$INSTALL_FACTORY"  	    = "" ] && INSTALL_FACTORY=1
-[ "$TARGET_BOARD"           = "" ] && TARGET_BOARD=lionskin
+[ "$INSTALL_FACTORY"  	    = "" ] && INSTALL_FACTORY=0
+[ "$TARGET_BOARD"           = "" ] && TARGET_BOARD=mjolnir
+[ "$ANDROID_BRANCH"         = "" ] && ANDROID_BRANCH=android-9  
+[ "$GPT"                    = "" ] && GPT=1
+[ "$PART_RESIZE"            = "" ] && PART_RESIZE=1
+[ "$ANDROID_PRODUCT"        = "" ] && ANDROID_PRODUCT=thor32
+[ "$SHRINK_GOLDEN_IMG"      = "" ] && SHRINK_GOLDEN_IMG=true
+[ "$CHIP_ID"                = "" ] && CHIP_ID=thor
 
-#if [ "$TARGET_BOARD" = "saola" ]; then
-#	IMAGE_DRAM_SIZE=xenott
-#        IMAGE_DRAM_SIZE=2G
-#	LAYOUT_SIZE=8gb
-#fi
 
 if [ "$INSTALL_DTB" = "1" ]; then
     if [ "$TARGET_BOARD" = "qa" ]; then
@@ -73,7 +74,9 @@ if [ "$INSTALL_DTB" = "1" ]; then
     elif [ "$TARGET_BOARD" = "saola" ]; then
         ANDROID_DTB=$KERNEL_BOOT_DIR/dts/realtek/rtd-1296-saola-$IMAGE_DRAM_SIZE.dtb
     elif [ "$TARGET_BOARD" = "lionskin" ]; then
-        ANDROID_DTB=$KERNEL_BOOT_DIR/dts/realtek/rtd139x/rtd-1395-lionskin-2GB-tee.dtb
+        ANDROID_DTB=$KERNEL_BOOT_DIR/dts/realtek/rtd139x/rtd-1395-lionskin-$IMAGE_DRAM_SIZE.dtb
+    elif [ "$TARGET_BOARD" = "mjolnir" ]; then
+        ANDROID_DTB=$KERNEL_BOOT_DIR/dts/realtek/rtd16xx/rtd-1619-mjolnir-$IMAGE_DRAM_SIZE.dtb
 
 
     fi
@@ -115,7 +118,7 @@ prepare_image()
             > cache/null_file
         fi
         if [ -e $KUIMAGE ]; then
-            echo copy Image:$KUIMAGE
+            echo copy uImage:$KUIMAGE
             cp $KUIMAGE $LAYOUT_TYPE.uImage
             dd if=/dev/zero of=$LAYOUT_TYPE.uImage conv=notrunc oflag=append bs=1k count=512 > /dev/null 2>&1
 
@@ -148,8 +151,13 @@ prepare_image()
         fi
 
         if [ -e $RESCUE_DTB ]; then
-            echo copy rescue dtb:$RESCUE_DTODUCT_DEVICE
+            echo copy rescue dtb:$RESCUE_DTB
             cp $RESCUE_DTB rescue.$LAYOUT_TYPE.dtb
+        fi
+
+	if [ -e $DTBOIMG ]; then
+            echo copy android dtbo:$DTBOIMG
+            cp $DTBOIMG dtbo.bin
         fi
 
         PACKAGE_SYSTEM=$PACKAGE_DIR/system
@@ -190,14 +198,12 @@ prepare_image()
             echo -e "\033[47;31m [WARNING] ALSADaemon not find!! ($ALSADAEMON_BIN) \033[0m"
         fi
 
-
         if [ -e $RtkKeyset_BIN ]; then
             echo copy RtkKeyset to /vendor/bin/ : $RtkKeyset_BIN
             cp $RtkKeyset_BIN $PACKAGE_VENDOR/bin/
         else
             echo -e "\033[47;31m [WARNING] RtkKeyset not find!! ($RtkKeyset_BIN) \033[0m"
         fi
-
 
     popd > /dev/null
     return $ERR;
@@ -213,20 +219,52 @@ build_image()
     echo INSTALL_AVFILE_COUNT=$INSTALL_AVFILE_COUNT
     [ "$INSTALL_DTB" = "1" ] && echo TARGET_BOARD=$TARGET_BOARD
     build_cmd prepare_image
-    pushd $IMAGEDIR > /dev/null
-echo "make image PACKAGES=$TARGET_PACKAGE install_dtb=$INSTALL_DTB layout_type=$LAYOUT_TYPE layout_size=$LAYOUT_SIZE install_avfile_count=$INSTALL_AVFILE_COUNT install_factory=$INSTALL_FACTORY"
-        make image                                      \
-            PACKAGES=$TARGET_PACKAGE                    \
-            install_dtb=$INSTALL_DTB                    \
-            layout_type=$LAYOUT_TYPE                    \
-            layout_size=$LAYOUT_SIZE                    \
-            install_avfile_count=$INSTALL_AVFILE_COUNT  \
-	    install_factory=$INSTALL_FACTORY            \
-            ANDROID_BRANCH='android-8'                  \
-            CHIP_ID='hercules'                          \
-            chip_rev='2'
+    pushd $IMAGEDIR 
+#echo "make image PACKAGES=$TARGET_PACKAGE install_dtb=$INSTALL_DTB layout_type=$LAYOUT_TYPE layout_size=$LAYOUT_SIZE install_avfile_count=$INSTALL_AVFILE_COUNT install_factory=$INSTALL_FACTORY" ANDROID_BRANCH=$ANDROID_BRANCH GPT=$GPT PART_RESIZE=$PART_RESIZE ANDROID_PRODUCT=$ANDROID_PRODUCT SHRINK_GOLDEN_IMG=$SHRINK_GOLDEN_IMG CHIP_ID=$CHIP_ID
+  
+make image \
+CHIP_ID=thor \
+PACKAGES=package5 \
+install_dtb=0 \
+GPT=1 \
+PART_RESIZE=1 \
+layout_type=emmc \
+layout_size=8gb \
+layout_use_emmc_swap=false \
+install_factory=0 \
+AUDIOADDR=0x0f900000 \
+ANDROID_PRODUCT=thor32 \
+install_avfile_count=1 \
+install_bootloader=0 \
+TEE_FW=n \
+offline_gen=n \
+chip_rev=1 \
+SHRINK_GOLDEN_IMG=true \
+MANIFEST_BRANCH=origin/android-9.0.0-b/thor \
+TARGET_CHIP_ARCH=arm32 \
+enable_ab_system=n \
+enable_dm_verity=n \
+vmx=n \
+ANDROID_BRANCH='android-9' \
 
-            > /dev/null
+	 #     make image                                      \
+         #   PACKAGES=$TARGET_PACKAGE                    \
+         #   install_dtb=$INSTALL_DTB                    \
+         #   layout_type=$LAYOUT_TYPE                    \
+         #   layout_size=$LAYOUT_SIZE                    \
+          #  install_avfile_count=$INSTALL_AVFILE_COUNT  \
+	 #   install_factory=$INSTALL_FACTORY            \
+         #   android_branch=$ANDROID_BRANCH              \
+	 #   GPT=$GPT                                    \
+	 #   PART_RESIZE=$PART_RESIZE                    \
+	 #   ANDROID_PRODUCT=$ANDROID_PRODUCT            \
+         #   CHIP_ID=$CHIP_ID                              \
+         #   chip_rev='1'                                \
+         #   TARGET_CHIP_ARCH='arm32'                    \
+	 #   SHRINK_GOLDEN_IMG=$SHRINK_GOLDEN_IMG        \
+         #   enable_ab_system='n'                        \
+	 #   enable_dm_verity='n'                        \
+         #   > /dev/null
 
         ERR=$?
     popd > /dev/null

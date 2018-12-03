@@ -28,6 +28,7 @@ MODULE_PATH=$ANDROIDDIR/out/target/product/$BUILDTYPE_ANDROID/vendor/modules
 #export CCACHE=ccache
 export ARCH=arm
 export CROSS_COMPILE="ccache arm-linux-gnueabi-"
+export _CROSS=arm-linux-gnueabi-
 export KERNEL_IMAGE=Image
 #export AS=${CROSS_COMPILE}as
 #export LD=${CROSS_COMPILE}ld
@@ -38,9 +39,9 @@ export KERNEL_IMAGE=Image
 #export OBJCOPY=${CROSS_COMPILE}objcopy
 #export OBJDUMP=${CROSS_COMPILE}objdump
 
-export PATH=$TOOLCHAINDIR/asdk-6.4.1-a53-EL-4.9-g2.26-a32nut-180831/bin:$PATH
 
-KERNELTOOLCHAIN=$TOOLCHAINDIR/asdk-6.4.1-a53-EL-4.9-g2.26-a32nut-180831/bin
+export KERNELTOOLCHAIN=$TOOLCHAINDIR/asdk-6.4.1-a53-EL-4.9-g2.26-a32nut-180831/bin
+export PATH=$KERNELTOOLCHAIN:$PATH
 
 KERNEL_TARGET_CHIP=thor
 ARCH_DIR=arm
