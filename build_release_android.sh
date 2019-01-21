@@ -152,14 +152,6 @@ ln -sf libOMX.realtek.video.enc.so libOMX.realtek.video.enc.mpeg4.so
 
 }
 
-pack_wv()
-{
-    pushd $SCRIPTDIR > /dev/null
-    echo "build widevine_so"
-    build_cmd ./widevine_so.sh
-    popd > /dev/null
-    return $ERR;
-}
 
 
 
@@ -177,7 +169,6 @@ else
             build)
                 build_cmd build_android
                 build_cmd ln_libOMX_realtek
-                build_cmd pack_wv
                 build_cmd build_android
                 ;;
             checkout)
