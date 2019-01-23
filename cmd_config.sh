@@ -1,44 +1,57 @@
 #!/bin/bash
-TOPDIR=$PWD
-SCRIPTDIR=$TOPDIR
-ANDROIDDIR=$TOPDIR/android
-KERNELDIR=$TOPDIR/linux-kernel
-MALIDIR=$TOPDIR/mali
-PLATFORMDIR=$TOPDIR/phoenix
-BOOTCODEDIR=$TOPDIR/bootcode
-IMAGEDIR=$TOPDIR/image_file_creator
-QASUPPLIEMENT=$TOPDIR/qa_supplement
-RTKSRC=$TOPDIR/software_Phoenix_RTK
-OPENWRTDIR=$SCRIPTDIR/OpenWrt-ImageBuilder-rtd1295-mnas_emmc.Linux-x86_64
-TOOLCHAINDIR=$PLATFORMDIR/toolchain
+[ "$CMD_CONFIG_SOURCE" != "" ] && return
+CMD_CONFIG_SOURCE=1
+
+[ "$TOPDIR" = "" ] && TOPDIR=$PWD
+
 CONFIG_MAGIC=CONFIG_
 CONFIG_FILE=$TOPDIR/.build_config
-VERBOSE=
-NCPU=`grep processor /proc/cpuinfo | wc -l`
-MULTI=`expr $NCPU + 2`
 
-source $TOPDIR/cmd_config.sh
+# list_add
+# list_del
+# config_set
+# config_get
+# config_menu
+# config_get_list_menu
+# config_get_menu
+# config_get_bool
+# config_get_true
+# config_get_false
+# config_show
 
-export USER=$(whoami)
-export JAVA_HOME=$TOPDIR/toolchain/OpenJDK-1.8.0.112-x86_64-bin/
-export JRE_HOME=${JAVA_HOME}/jre
-export CLASSPATH=.:${JAVA_HOME}/lib:${JRE_HOME}/lib
-export PATH=${JAVA_HOME}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
-export PATH=~/bin:$PATH
-echo $PATH
-echo  "Java 8"
-
-function build_cmd()
+function list_add ()
 {
-    $@
-    ERR=$?
-    printf "$* "
-    if [ "$ERR" != "0" ]; then
-        echo -e "\033[47;31m [ERROR] $ERR \033[0m"
-        exit 1
-    else
-        echo "[OK]"
-    fi
+    ([ "$1" = "" ] || [ "$2" = "" ]) && return 1
+    item=$1
+    while [ "$2" != "" ]
+    do
+        export $item="${!item} $2"
+        shift 1
+    done
+    return 0
+}
+
+function list_del()
+{
+    ([ "$1" = "" ] || [ "$2" = "" ]) && return 1
+    item=$1
+    while [ "$2" != "" ]
+    do
+        export $item="`echo ${!item}|sed "s/$2//g"`"
+        shift 1
+    done
+    return 0
+}
+
+# config_remove TEST
+function config_remove()
+{
+    item=$1
+    config_item=${CONFIG_MAGIC}${item}
+    [ -e $CONFIG_FILE ] &&
+        FIND=`cat $CONFIG_FILE | grep $config_item | wc -l` || FIND=0
+    [ "$FIND" != "0" ] && sed -i "/${config_item}/d" $CONFIG_FILE
+    return 0
 }
 
 #   case 1. config_set TEST
@@ -115,12 +128,14 @@ function config_get()
 
 function config_menu()
 {
-    echo "-------------------------------------------------"
     i=0
     item=$1
     list=${!2}
     def_item=$3
     ERR=1
+    echo
+    echo  -e "\033[0;33m$item\033[0m"
+    echo "-------------------------------------------------"
     for b in $list
     do
         if [ "$b" = "$def_item" ]; then
@@ -217,9 +232,27 @@ function config_get_list_menu()
     config_set $item
 }
 
+function config_text()
+{
+    item=$1
+    def_text=$2
+    if [ "$def_text" != "" ]; then
+        read -p "set the $item [$def_text] : " data
+        [ "$data" = "" ] && data=$def_text
+    else
+        read -p "set the $item : " data
+    fi
+    config_set $item $data
+}
+
 function config_get_menu()
 {
     config_get $1 || config_menu $@
+}
+
+function config_get_text()
+{
+    config_get $1 || config_text $@
 }
 
 function config_get_bool()
@@ -272,18 +305,29 @@ function config_get_false()
     [ "`echo ${!1} | awk '{print $1}'`" = "true" ] && return 1 || return 0
 }
 
+function config_get_all()
+{
+    config_magic_size=`echo $CONFIG_MAGIC | wc -c`
+    config_list=`cat $CONFIG_FILE | cut -c $config_magic_size-| awk '{print $1}'`
+    for i in $config_list
+    do
+        config_get $i
+    done
+}
+
 function config_show()
 {
     echo "-----------------------------------------------------------------------------"
     echo "  Config File : $CONFIG_FILE                                                 "
     echo
     cat $CONFIG_FILE |\
-        cut -c `echo $CONFIG_MAGIC | wc -c`-|\
+        cut -c `echo $CONFIG_MAGIC | wc -c`-| sort |\
         awk '{
     for (i=1; i <= NF; i++) {
-        if (i==1)               {printf "\t\033[1;32m%-25s \t",$i}
+        if (i==1)               {printf "\t\033[1;32m%-35s \t",$i}
         else if ($i=="true")    {printf "\033[1;34m %s ",$i}
         else if ($i=="false")   {printf "\033[1;31m %s ",$i}
+        else if ($i=="off")     {printf "\033[1;31m %s ",$i}
         else                    {printf "\033[1;33m %s ",$i}
         }
         printf "\033[0m \n"}'
@@ -291,98 +335,3 @@ function config_show()
     echo "-----------------------------------------------------------------------------"
     return 0
 }
-
-
-function check_target_branch()
-{
-    config_get BRANCH_QA_TARGET
-    config_get BRANCH_PARENT
-    config_get MANIFEST_BRANCH
-    if [ "$?" == "0" ]; then
-        return
-    fi
-
-    if [ ! -d .manifest ]; then
-        build_cmd git clone $GERRIT_MANIFEST .manifest
-    fi
-    pushd .manifest > /dev/null
-        BRANCH_LIST=
-        BRANCH_LIST="$BRANCH_LIST `git branch -r | sed -n 's/\(origin\/phoenix-kk-4.4.4_r1-b\/.*\)/\1/p'`"
-        BRANCH_LIST="$BRANCH_LIST `git branch -r | sed -n 's/\(origin\/phoenix-ll-5.0.0-b\/.*\)/\1/p'`"
-        BRANCH_LIST="$BRANCH_LIST `git branch -r | sed -n 's/\(origin\/phoenix-mm-6.0.0-b\/.*\)/\1/p'`"
-        BRANCH_LIST="$BRANCH_LIST `git branch -r | sed -n 's/\(origin\/android-7.0.0-b\/.*\)/\1/p'`"
-        BRANCH_LIST="$BRANCH_LIST `git branch -r | sed -n 's/\(origin\/android-8.0.0-b\/.*\)/\1/p'`"
-        BRANCH_LIST="$BRANCH_LIST `git branch -r | sed -n 's/\(origin\/android-9.0.0-b\/.*\)/\1/p'`"
-    popd > /dev/null
-    config_menu MANIFEST_BRANCH BRANCH_LIST origin/phoenix-ll-5.0.0-b/trunk-5.0.0_r2
-    IFS='/' read REMOTE BRANCH_PARENT BRANCH_QA_TARGET <<< "$MANIFEST_BRANCH"
-    config_set BRANCH_QA_TARGET
-    config_set BRANCH_PARENT
-}
-
-function get_android_major_version()
-{
-    config_get BRANCH_PARENT
-    if [ "$BRANCH_PARENT" = "phoenix-kk-4.4.4_r1-b" ]; then
-        echo 4;
-    elif [ "$BRANCH_PARENT" = "phoenix-ll-5.0.0-b" ]; then
-        echo 5;
-    elif [ "$BRANCH_PARENT" = "phoenix-mm-6.0.0-b" ]; then
-        echo 6;
-    elif [ "$BRANCH_PARENT" = "android-7.0.0-b" ]; then
-        echo 7;
-    elif [ "$BRANCH_PARENT" = "android-8.0.0-b" ]; then
-        echo 8;
-    elif [ "$BRANCH_PARENT" = "android-9.0.0-b" ]; then
-        echo 9;
-    else
-        echo "unknown BRANCH_PARENT=$BRANCH_PARENT";
-        exit 1;
-    fi
-}
-
-function android_product_out_dir_get()
-{
-    android_env > /dev/null 2>&1
-    item=$1
-    dir=$ANDROID_PRODUCT_OUT
-    [ "$item" != "" ] && export ${item}="${dir}" || echo ${dir}
-    return 0
-}
-
-function check_repo_para()
-{
-    REPO_PARA=
-
-    if check_mirror ; then
-        list_add REPO_PARA $REFERENCE
-    fi
-
-    REPO_URL_LIST=
-    list_add REPO_URL_LIST NULL
-    list_add REPO_URL_LIST ${GERRIT_SERVER}/aosp/git-repo
-    list_add REPO_URL_LIST https://gerrit.googlesource.com/git-repo
-    list_add REPO_URL_LIST Other
-    REPO_URL_DEFAULT=NULL
-    config_get_menu REPO_URL REPO_URL_LIST $REPO_URL_DEFAULT
-
-    if [ "$REPO_URL" = "Other" ]; then
-        read -p "REPO_URL : " REPO_URL
-        config_set REPO_URL
-    elif [ "$REPO_URL" = "NULL" ]; then
-        REPO_URL=
-    fi
-    if [ "$REPO_URL" != "" ]; then
-        list_add REPO_PARA --repo-url=${REPO_URL}
-    fi
-
-    ### repo verify ###
-    config_get_bool REPO_VERIFY true
-    config_get_false REPO_VERIFY && list_add REPO_PARA --no-repo-verify
-
-    [ "$REPO_PARA" != "" ] && echo repo extra parameters : $REPO_PARA
-}
-
-
-check_target_branch
-#check_repo_para
