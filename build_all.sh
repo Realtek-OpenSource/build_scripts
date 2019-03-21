@@ -9,6 +9,7 @@ config_get USER
 config_get USE_RTK_REPO
 config_get TARGET_BUILD_TYPE
 config_get BUILDTYPE_ANDROID
+config_get REALTEK_1619_CHIP
 MODULE_PATH=$ANDROIDDIR/out/target/product/$BUILDTYPE_ANDROID/system/vendor/modules
 
 
@@ -17,34 +18,33 @@ umask 0022
 
 config_show
 
-git clone ssh://$USER@$GIT_SERVER_URL:29418/main_trunk-8.1_Hercules_ATV_Cert_180815/20180824/toolchain
+git clone ssh://$USER@$GIT_SERVER_URL:29418/SDK_release/toolchain
+
 
 check_build_target()
 {
 	pushd $SCRIPTDIR > /dev/null
-	[ ! -d "$BOOTCODEDIR" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/bootcode -b $SDK_BRANCH
-	[ ! -d "$IMAGEDIR" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/image_file_creator -b master
-#	[ ! -d "$QASUPPLEMENT" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/qa_supplement -b $SDK_BRANCH
+#	[ ! -d "$BOOTCODEDIR" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/bootcode -b $SDK_BRANCH
+	[ ! -d "$IMAGEDIR" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/image_file_creator -b $SDK_BRANCH image_file
+	[ ! -d "$QASUPPLEMENT" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/qa_supplement -b $SDK_BRANCH
 	popd > /dev/null
 	return $ERR;
 }
 
 target_build()
 {
-	pushd $BOOTCODEDIR > /dev/null
-#		build_cmd ./build_rtk_lk.sh rtd1395 drm
-	popd > /dev/null
+#	pushd $BOOTCODEDIR > /dev/null
+#		build_cmd ./build_rtk_lk.sh rtd1395
+#	popd > /dev/null
 
 	pushd $SCRIPTDIR > /dev/null
 		if [ "$TARGET_BUILD_TYPE" == openwrt ]; then
-			build_cmd ./build_release_android.sh build
-			build_cmd ./build_release_openwrt.sh build
+			build_cmd ./build_android.sh build
 			cp -f $OPENWRTDIR/bin/rtd1295-glibc/install.img $SCRIPTDIR/install.img-OpenWRT-`date +%Y-%m-%d`
 		elif [ "$TARGET_BUILD_TYPE" == pure_android ]; then
-			[ ! -d "$IMAGEDIR" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/image_file_creator -b $SDK_BRANCH
-			build_cmd ./build_release_linux_kernel.sh build
-			build_cmd ./build_release_android.sh build
-#			build_cmd ./widevine_so.sh
+			[ ! -d "$IMAGEDIR" ] && git clone ssh://$USER@$GIT_SERVER_URL:29418/$CUSTOMER/image_file_creator -b $SDK_BRANCH image_file
+                        build_cmd ./build_linux_kernel.sh build
+			build_cmd ./build_android.sh build
 			build_cmd ./build_image.sh build
 			cp -f $IMAGEDIR/install.img $SCRIPTDIR/install.img-OTT-`date +%Y-%m-%d`
 		fi
@@ -57,14 +57,13 @@ target_checkout()
 {
 	pushd $SCRIPTDIR > /dev/null
 		if [ "$TARGET_BUILD_TYPE" == openwrt ]; then
-			build_cmd ./build_release_android.sh checkout
-			build_cmd ./build_release_openwrt.sh checkout
+			build_cmd ./build_android.sh checkout
 			DATE=`cat $SCRIPTDIR/.build_config |grep SYNC_DATE: | awk '{print $2}'`
 			NEW_DATE=`date +%Y-%m-%d`	
 			sed -i 's/'$DATE'/'$NEW_DATE'/g' $SCRIPTDIR/.build_config
 		elif [ "$TARGET_BUILD_TYPE" == pure_android ]; then
-			build_cmd ./build_release_android.sh checkout
-			build_cmd ./build_release_linux_kernel.sh checkout
+			build_cmd ./build_android.sh checkout
+			build_cmd ./build_linux_kernel.sh checkout
 		fi
 
 	popd > /dev/null
@@ -85,8 +84,7 @@ target_sync()
                 popd > /dev/null
             fi
 
-            build_cmd ./build_release_android.sh sync
-            build_cmd ./build_release_openwrt.sh sync
+            build_cmd ./build_android.sh sync
             DATE=`cat $SCRIPTDIR/.build_config |grep SYNC_DATE: | awk '{print $2}'`
             NEW_DATE=`date +%Y-%m-%d`
             sed -i 's/'$DATE'/'$NEW_DATE'/g' $SCRIPTDIR/.build_config
@@ -99,8 +97,8 @@ target_sync()
                 git pull;git log --stat --since="$DATE" >> /tmp/change_log.txt;mv /tmp/change_log.txt $SCRIPTDIR/change_log_bootcode_`date +%Y-%m-%d`.txt
                 popd > /dev/null 
 			fi
- 	    build_cmd ./build_release_android.sh sync
-            build_cmd ./build_release_linux_kernel.sh sync
+ 	    build_cmd ./build_android.sh sync
+            build_cmd ./build_linux_kernel.sh sync
  			DATE=`cat $SCRIPTDIR/.build_config |grep SYNC_DATE: | awk '{print $2}'`
             NEW_DATE=`date +%Y-%m-%d`
             sed -i 's/'$DATE'/'$NEW_DATE'/g' $SCRIPTDIR/.build_config
@@ -110,7 +108,6 @@ target_sync()
 		git pull
 	popd > /dev/null
 
-    popd > /dev/null
     return $ERR;
 }
 
@@ -145,8 +142,8 @@ else
 		clean)
 			clean_module
 			./build_image.sh clean
-			./build_release_android.sh clean
-			./build_release_linux_kernel.sh clean
+			./build_android.sh clean
+			./build_linux_kernel.sh clean
 		;;
 		*)
                 echo -e "$0 \033[47;31mUnknown CMD: $1\033[0m"
