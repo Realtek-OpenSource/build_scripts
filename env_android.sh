@@ -215,6 +215,12 @@ function android_config()
     config_get_bool ANDROID_CLEAR_ROOT      false
     config_get_bool ANDROID_CLEAR_SYSTEM    false
     config_get_bool ANDROID_CLEAR_VERDOR    false
+
+    # Correct typo : ANDROID_CLEAR_VERDOR => ANDROID_CLEAR_VENDOR
+    config_get ANDROID_CLEAR_VERDOR && config_set ANDROID_CLEAR_VENDOR $ANDROID_CLEAR_VERDOR
+
+    config_get_bool ANDROID_CLEAR_VENDOR    false
+
     vmx_config
     android_config_check_version
 

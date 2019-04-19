@@ -170,6 +170,9 @@ function firmware_config()
             list_add FIRMWARE_SUBVERSION_LIST release_PAPER_MULBERRY.SQA
             list_add FIRMWARE_SUBVERSION_LIST release_slim.SQA
             list_add FIRMWARE_SUBVERSION_LIST release_slim_disable_vo.SQA
+            list_add FIRMWARE_SUBVERSION_LIST release_SecureFWRPC_1G.SQA
+            list_add FIRMWARE_SUBVERSION_LIST release_SecureFWRPC_DMX.SQA
+            list_add FIRMWARE_SUBVERSION_LIST release_SecureFWRPC_CVBS_DMX.SQA
             config_get_menu FIRMWARE_SUBVERSION FIRMWARE_SUBVERSION_LIST release.SQA
             ;;
         thor)

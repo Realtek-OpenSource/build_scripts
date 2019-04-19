@@ -95,11 +95,11 @@ function drm_setup_environment()
     if [ "$KERNEL_TARGET_CHIP" = "kylin" ]; then
         DRM_TA_DIR=`qa_sub_dir_get`/widevine/kylin/
         TEE_DIR=`qa_sub_dir_get`/widevine/
-        rsync -a rsync -a ${DRM_TA_DIR}/tee-supplicant    ${TEE_DIR}/system/bin/
-        rsync -a rsync -a ${DRM_TA_DIR}/libteec.so        ${TEE_DIR}/system/lib/
-        rsync -a rsync -a ${DRM_TA_DIR}/*.ta              ${TEE_DIR}/system/lib/teetz
-        rsync -a rsync -a ${DRM_TA_DIR}/*.ta.enc          ${TEE_DIR}/system/lib/teetz
-        rsync -a rsync -a ${DRM_TA_DIR}/tee_*             ${TEE_DIR}/system/bin/
+        rsync -ac ${DRM_TA_DIR}/tee-supplicant    ${TEE_DIR}/system/bin/
+        rsync -ac ${DRM_TA_DIR}/libteec.so        ${TEE_DIR}/system/lib/
+        rsync -ac ${DRM_TA_DIR}/*.ta              ${TEE_DIR}/system/lib/teetz
+        rsync -ac ${DRM_TA_DIR}/*.ta.enc          ${TEE_DIR}/system/lib/teetz
+        rsync -ac ${DRM_TA_DIR}/tee_*             ${TEE_DIR}/system/bin/
 
     elif [ "$KERNEL_TARGET_CHIP" = "hercules" ]; then
         DRM_TA_DIR=`qa_sub_dir_get`/widevine/hercules/
@@ -109,52 +109,42 @@ function drm_setup_environment()
         config_get ENABLE_VMX_DRM
 
         if [ "$SDK" == "9" ]; then
-            rsync -a ${DRM_TA_DIR}/wv_for_9.0/tee-supplicant ${TEE_DIR}/system/bin/
+            rsync -ac ${DRM_TA_DIR}/wv_for_9.0/tee-supplicant ${TEE_DIR}/system/bin/
         else
-            rsync -a ${DRM_TA_DIR}/tee-supplicant    ${TEE_DIR}/system/bin/
+            rsync -ac ${DRM_TA_DIR}/tee-supplicant    ${TEE_DIR}/system/bin/
         fi
-        rsync -a ${DRM_TA_DIR}/libteec.so        ${TEE_DIR}/system/lib/
-        rsync -a ${DRM_TA_DIR}/tee_*             ${TEE_DIR}/system/bin/
-        rsync -a ${DRM_TA_DIR}/*.ta              ${TEE_DIR}/system/lib/teetz
+        rsync -ac ${DRM_TA_DIR}/libteec.so        ${TEE_DIR}/system/lib/
+        rsync -ac ${DRM_TA_DIR}/tee_*             ${TEE_DIR}/system/bin/
+        rsync -ac ${DRM_TA_DIR}/*.ta              ${TEE_DIR}/system/lib/teetz
 
         if [ "$ANDROID_PRODUCT" == "RealtekSTB" ]; then
-            rsync -a ${DRM_TA_DIR}/wv_for_keybox_RealtekSTB/*.ta ${TEE_DIR}/system/lib/teetz
+            rsync -ac ${DRM_TA_DIR}/wv_for_keybox_RealtekSTB/*.ta ${TEE_DIR}/system/lib/teetz
         fi
 
-        if [ "$ENABLE_VMX_DRM" == "true" ] && [ "$SDK" != "8.1.0" ] && [ "$SDK" != "9" ]; then
-            rsync -a rsync -a ${DRM_TA_DIR}/wv_for_7.0_VMX/*.ta          ${TEE_DIR}/system/lib/teetz
-        fi
-
-        if [ "$IMAGE_DRAM_SIZE" == "1GB.atv" ]; then
-            rsync -a rsync -a ${DRM_TA_DIR}/ATV_tee_api/*.ta     ${TEE_DIR}/system/lib/teetz
+        if [ "`echo $IMAGE_DRAM_SIZE | grep "1GB.atv"`" != "" ]; then
+            rsync -ac ${DRM_TA_DIR}/ATV_tee_api/*.ta     ${TEE_DIR}/system/lib/teetz
+	elif [ "$ENABLE_VMX_DRM" == "true" ]; then
+            rsync -ac ${DRM_TA_DIR}/VMX_tee_api/*.ta     ${TEE_DIR}/system/lib/teetz
         fi
 
      elif [ "$KERNEL_TARGET_CHIP" = "thor" ]; then
         DRM_TA_DIR=`qa_sub_dir_get`/widevine/thor/
         TEE_DIR=`qa_sub_dir_get`/widevine/
         SDK=`android_sdk_version_get`
-        config_get  IMAGE_DRAM_SIZE 
-        
+        config_get  IMAGE_DRAM_SIZE
+
         if [ "$SDK" == "9" ]; then
-            rsync -a ${DRM_TA_DIR}/wv_for_9.0/tee-supplicant ${TEE_DIR}/system/bin/
+            rsync -ac ${DRM_TA_DIR}/wv_for_9.0/tee-supplicant ${TEE_DIR}/system/bin/
         else
-            rsync -a ${DRM_TA_DIR}/tee-supplicant    ${TEE_DIR}/system/bin/
+            rsync -ac ${DRM_TA_DIR}/tee-supplicant    ${TEE_DIR}/system/bin/
         fi
-        rsync -a ${DRM_TA_DIR}/libteec.so        ${TEE_DIR}/system/lib/
-        rsync -a ${DRM_TA_DIR}/tee_*             ${TEE_DIR}/system/bin/
-        rsync -a ${DRM_TA_DIR}/*.ta              ${TEE_DIR}/system/lib/teetz/
+        rsync -ac ${DRM_TA_DIR}/libteec.so        ${TEE_DIR}/system/lib/
+        rsync -ac ${DRM_TA_DIR}/tee_*             ${TEE_DIR}/system/bin/
+        rsync -ac ${DRM_TA_DIR}/*.ta              ${TEE_DIR}/system/lib/teetz/
 
         if [ "$ANDROID_PRODUCT" == "RealtekSTB" ]; then
-            rsync -a ${DRM_TA_DIR}/wv_for_keybox_RealtekSTB/*.ta ${TEE_DIR}/system/lib/teetz
+            rsync -ac ${DRM_TA_DIR}/wv_for_keybox_RealtekSTB/*.ta ${TEE_DIR}/system/lib/teetz
         fi
-
-        #if [ "$SDK" != "8.1.0" ]; then
-        #    rsync -a rsync -a ${DRM_TA_DIR}/wv_for_7.0/*.ta          ${TEE_DIR}/system/lib/teetz
-        #fi
-
-        #if [ "$IMAGE_DRAM_SIZE" == "1GB.atv" ]; then
-        #    rsync -a rsync -a ${DRM_TA_DIR}/tee_api_for_atv/*.ta     ${TEE_DIR}/system/lib/teetz
-        #fi
     else
         echo "Please check KERNEL_TARGET_CHIP: $KERNEL_TARGET_CHIP"
         return 0
@@ -165,28 +155,26 @@ function drm_setup_environment()
     if [ "$SDK" = "9" ]; then
         TEE_DIR=`qa_sub_dir_get`/widevine/system/
         ANDROID_VENDOR_DIR=`android_vendor_dir_get`
-        DRM_TA_DIR=`qa_sub_dir_get`/widevine/${KERNEL_TARGET_CHIP}/wv_for_9.0/
+        DRM_TA_DIR=${TEE_DIR}/vendor/drm/9.0/
         if drm_type_is_with_svp ; then
             cp ${TEE_DIR}/vendor/lib/mediadrm/9.0/libwvdrmengine.so        ${ANDROID_VENDOR_DIR}/lib/mediadrm/
             cp ${TEE_DIR}/vendor/lib/9.0/liboemcrypto.so                   ${ANDROID_VENDOR_DIR}/lib/
-            rsync -a ${TEE_DIR}/bin/tee-supplicant                         ${ANDROID_VENDOR_DIR}/bin/
-            rsync -a ${TEE_DIR}/lib/libteec.so                             ${ANDROID_VENDOR_DIR}/lib/
-            rsync -a ${TEE_DIR}/bin/tee_*                                  ${ANDROID_VENDOR_DIR}/bin/
-            rsync -a ${TEE_DIR}/lib/teetz                                  ${ANDROID_VENDOR_DIR}/lib/
-            cp ${DRM_TA_DIR}/android.hardware.drm@1.0-service              ${ANDROID_VENDOR_DIR}/bin/hw/
+            cp ${TEE_DIR}/vendor/lib/9.0/libwvhidl.so                      ${ANDROID_VENDOR_DIR}/lib/
+            rsync -ac ${TEE_DIR}/bin/tee-supplicant                        ${ANDROID_VENDOR_DIR}/bin/
+            rsync -ac ${TEE_DIR}/lib/libteec.so                            ${ANDROID_VENDOR_DIR}/lib/
+            rsync -ac ${TEE_DIR}/bin/tee_*                                 ${ANDROID_VENDOR_DIR}/bin/
+            rsync -ac ${TEE_DIR}/lib/teetz                                 ${ANDROID_VENDOR_DIR}/lib/
             cp ${DRM_TA_DIR}/android.hardware.drm@1.1-service.widevine     ${ANDROID_VENDOR_DIR}/bin/hw/
             cp ${DRM_TA_DIR}/android.hardware.drm@1.1-service.widevine.rc  ${ANDROID_VENDOR_DIR}/etc/init/
-            cp ${DRM_TA_DIR}/libwvhidl.so                                  ${ANDROID_VENDOR_DIR}/lib/
         elif drm_type_is_without_svp ; then
             cp ${TEE_DIR}/vendor/lib/mediadrm/9.0/libwvdrmengine.so        ${ANDROID_VENDOR_DIR}/lib/mediadrm/
             cp ${TEE_DIR}/vendor/lib/9.0/liboemcrypto.so                   ${ANDROID_VENDOR_DIR}/lib/
-            rsync -a ${TEE_DIR}/bin/tee-supplicant                         ${ANDROID_VENDOR_DIR}/bin/
-            rsync -a ${TEE_DIR}/lib/libteec.so                             ${ANDROID_VENDOR_DIR}/lib/
-            rsync -a ${TEE_DIR}/lib/teetz                                  ${ANDROID_VENDOR_DIR}/lib/
-            cp ${DRM_TA_DIR}/android.hardware.drm@1.0-service              ${ANDROID_VENDOR_DIR}/bin/hw/
+            cp ${TEE_DIR}/vendor/lib/9.0/libwvhidl.so                      ${ANDROID_VENDOR_DIR}/lib/
+            rsync -ac ${TEE_DIR}/bin/tee-supplicant                        ${ANDROID_VENDOR_DIR}/bin/
+            rsync -ac ${TEE_DIR}/lib/libteec.so                            ${ANDROID_VENDOR_DIR}/lib/
+            rsync -ac ${TEE_DIR}/lib/teetz                                 ${ANDROID_VENDOR_DIR}/lib/
             cp ${DRM_TA_DIR}/android.hardware.drm@1.1-service.widevine     ${ANDROID_VENDOR_DIR}/bin/hw/
             cp ${DRM_TA_DIR}/android.hardware.drm@1.1-service.widevine.rc  ${ANDROID_VENDOR_DIR}/etc/init/
-            cp ${DRM_TA_DIR}/libwvhidl.so                                  ${ANDROID_VENDOR_DIR}/lib/
         else
             return 3
         fi
@@ -196,24 +184,24 @@ function drm_setup_environment()
         DRM_TA_DIR=`qa_sub_dir_get`/widevine/${KERNEL_TARGET_CHIP}/
         if drm_type_is_with_svp ; then
             cp ${TEE_DIR}/system/vendor/lib/mediadrm/8.1/libwvdrmengine.so ${ANDROID_VENDOR_DIR}/lib/mediadrm/
-            cp ${TEE_DIR}/system/vendor/lib/8.1/liboemcrypto.so          ${ANDROID_VENDOR_DIR}/lib/
+            cp ${TEE_DIR}/system/vendor/lib/8.1/liboemcrypto.so            ${ANDROID_VENDOR_DIR}/lib/
             cp ${TEE_DIR}/system/vendor/lib/mediadrm/8.1/libPlayReadyDrmCryptoPlugin.so ${ANDROID_VENDOR_DIR}/lib/mediadrm/
-            rsync -a ${TEE_DIR}/system/bin/tee-supplicant            ${ANDROID_VENDOR_DIR}/bin/
-            rsync -a ${TEE_DIR}/system/lib/libteec.so                ${ANDROID_VENDOR_DIR}/lib/
-            rsync -a ${TEE_DIR}/system/bin/tee_*                     ${ANDROID_VENDOR_DIR}/bin/
-            rsync -a ${TEE_DIR}/system/lib/teetz                     ${ANDROID_VENDOR_DIR}/lib/
-            cp ${DRM_TA_DIR}/android.hardware.drm@1.0-service.widevine          ${ANDROID_VENDOR_DIR}/bin/hw/
-            cp ${DRM_TA_DIR}/android.hardware.drm@1.0-service.widevine.rc       ${ANDROID_VENDOR_DIR}/etc/init/
-            cp ${DRM_TA_DIR}/libwvhidl.so                                       ${ANDROID_VENDOR_DIR}/lib/
+            rsync -ac ${TEE_DIR}/system/bin/tee-supplicant                 ${ANDROID_VENDOR_DIR}/bin/
+            rsync -ac ${TEE_DIR}/system/lib/libteec.so                     ${ANDROID_VENDOR_DIR}/lib/
+            rsync -ac ${TEE_DIR}/system/bin/tee_*                          ${ANDROID_VENDOR_DIR}/bin/
+            rsync -ac ${TEE_DIR}/system/lib/teetz                          ${ANDROID_VENDOR_DIR}/lib/
+            cp ${DRM_TA_DIR}/android.hardware.drm@1.0-service.widevine     ${ANDROID_VENDOR_DIR}/bin/hw/
+            cp ${DRM_TA_DIR}/android.hardware.drm@1.0-service.widevine.rc  ${ANDROID_VENDOR_DIR}/etc/init/
+            cp ${DRM_TA_DIR}/libwvhidl.so                                  ${ANDROID_VENDOR_DIR}/lib/
         elif drm_type_is_without_svp ; then
             cp ${TEE_DIR}/system/vendor/lib/mediadrm/8.1/libwvdrmengine.so ${ANDROID_VENDOR_DIR}/lib/mediadrm/
-            cp ${TEE_DIR}/system/vendor/lib/8.1/liboemcrypto.so          ${ANDROID_VENDOR_DIR}/lib/
-            rsync -a ${TEE_DIR}/system/bin/tee-supplicant            ${ANDROID_VENDOR_DIR}/bin/
-            rsync -a ${TEE_DIR}/system/lib/libteec.so                ${ANDROID_VENDOR_DIR}/lib/
-            rsync -a ${TEE_DIR}/system/lib/teetz                     ${ANDROID_VENDOR_DIR}/lib/
-            cp ${DRM_TA_DIR}/android.hardware.drm@1.0-service.widevine          ${ANDROID_VENDOR_DIR}/bin/hw/
-            cp ${DRM_TA_DIR}/android.hardware.drm@1.0-service.widevine.rc       ${ANDROID_VENDOR_DIR}/etc/init/
-            cp ${DRM_TA_DIR}/libwvhidl.so                                       ${ANDROID_VENDOR_DIR}/lib/
+            cp ${TEE_DIR}/system/vendor/lib/8.1/liboemcrypto.so            ${ANDROID_VENDOR_DIR}/lib/
+            rsync -ac ${TEE_DIR}/system/bin/tee-supplicant                 ${ANDROID_VENDOR_DIR}/bin/
+            rsync -ac ${TEE_DIR}/system/lib/libteec.so                     ${ANDROID_VENDOR_DIR}/lib/
+            rsync -ac ${TEE_DIR}/system/lib/teetz                          ${ANDROID_VENDOR_DIR}/lib/
+            cp ${DRM_TA_DIR}/android.hardware.drm@1.0-service.widevine     ${ANDROID_VENDOR_DIR}/bin/hw/
+            cp ${DRM_TA_DIR}/android.hardware.drm@1.0-service.widevine.rc  ${ANDROID_VENDOR_DIR}/etc/init/
+            cp ${DRM_TA_DIR}/libwvhidl.so                                  ${ANDROID_VENDOR_DIR}/lib/
         else
             return 3
         fi
@@ -224,45 +212,41 @@ function drm_setup_environment()
 
         if drm_type_is_with_svp ; then
             cp ${TEE_DIR}/system/vendor/lib/mediadrm/8.0/libwvdrmengine.so ${ANDROID_VENDOR_DIR}/lib/mediadrm/
-            cp ${TEE_DIR}/system/vendor/lib/7.0/liboemcrypto.so          ${ANDROID_VENDOR_DIR}/lib/
-            rsync -a ${TEE_DIR}/system/bin/tee-supplicant            ${ANDROID_VENDOR_DIR}/bin/
-            rsync -a ${TEE_DIR}/system/lib/libteec.so                ${ANDROID_VENDOR_DIR}/lib/
-            rsync -a ${TEE_DIR}/system/bin/tee_*                     ${ANDROID_VENDOR_DIR}/bin/
-            rsync -a ${TEE_DIR}/system/lib/teetz                     ${ANDROID_VENDOR_DIR}/lib/
+            cp ${TEE_DIR}/system/vendor/lib/7.0/liboemcrypto.so            ${ANDROID_VENDOR_DIR}/lib/
+            rsync -ac ${TEE_DIR}/system/bin/tee-supplicant                 ${ANDROID_VENDOR_DIR}/bin/
+            rsync -ac ${TEE_DIR}/system/lib/libteec.so                     ${ANDROID_VENDOR_DIR}/lib/
+            rsync -ac ${TEE_DIR}/system/bin/tee_*                          ${ANDROID_VENDOR_DIR}/bin/
+            rsync -ac ${TEE_DIR}/system/lib/teetz                          ${ANDROID_VENDOR_DIR}/lib/
         elif drm_type_is_without_svp ; then
             cp ${TEE_DIR}/system/vendor/lib/mediadrm/8.0/libwvdrmengine.so ${ANDROID_VENDOR_DIR}/lib/mediadrm/
-            cp ${TEE_DIR}/system/vendor/lib/7.0/liboemcrypto.so          ${ANDROID_VENDOR_DIR}/lib/
-            rsync -a ${TEE_DIR}/system/bin/tee-supplicant            ${ANDROID_VENDOR_DIR}/bin/
-            rsync -a ${TEE_DIR}/system/lib/libteec.so                ${ANDROID_VENDOR_DIR}/lib/
-            rsync -a ${TEE_DIR}/system/lib/teetz                     ${ANDROID_VENDOR_DIR}/lib/
+            cp ${TEE_DIR}/system/vendor/lib/7.0/liboemcrypto.so            ${ANDROID_VENDOR_DIR}/lib/
+            rsync -ac ${TEE_DIR}/system/bin/tee-supplicant                 ${ANDROID_VENDOR_DIR}/bin/
+            rsync -ac ${TEE_DIR}/system/lib/libteec.so                     ${ANDROID_VENDOR_DIR}/lib/
+            rsync -ac ${TEE_DIR}/system/lib/teetz                          ${ANDROID_VENDOR_DIR}/lib/
         else
             return 3
         fi
 
     else
         TEE_DIR=`qa_sub_dir_get`/widevine/
-        CA_DIR=7.0
         ANDROID_VENDOR_DIR=`android_vendor_dir_get`
         ANDROID_SYSTEM_DIR=`android_system_dir_get`
 
-	config_get ENABLE_VMX_DRM
-        if [ "$ENABLE_VMX_DRM" == "true" ] ; then
-	    CA_DIR=7.0/VMX
-        fi
-
         if drm_type_is_with_svp ; then
             cp ${TEE_DIR}/system/vendor/lib/mediadrm/7.0/libwvdrmengine.so ${ANDROID_VENDOR_DIR}/lib/mediadrm/
-            cp ${TEE_DIR}/system/vendor/lib/${CA_DIR}/liboemcrypto.so      ${ANDROID_VENDOR_DIR}/lib/
-            rsync -a ${TEE_DIR}/system/bin/tee-supplicant            ${ANDROID_SYSTEM_DIR}/bin/
-            rsync -a ${TEE_DIR}/system/lib/libteec.so                ${ANDROID_SYSTEM_DIR}/lib/
-            rsync -a ${TEE_DIR}/system/bin/tee_*                     ${ANDROID_SYSTEM_DIR}/bin/
-            rsync -a ${TEE_DIR}/system/lib/teetz                     ${ANDROID_VENDOR_DIR}/lib/
+            cp ${TEE_DIR}/system/vendor/lib/7.0/liboemcrypto.so            ${ANDROID_VENDOR_DIR}/lib/
+            cp ${TEE_DIR}/system/vendor/lib/mediadrm/7.0/libPlayReadyDrmCryptoPlugin.so ${ANDROID_VENDOR_DIR}/lib/mediadrm/
+            rsync -ac ${TEE_DIR}/system/bin/tee-supplicant                 ${ANDROID_SYSTEM_DIR}/bin/
+            rsync -ac ${TEE_DIR}/system/lib/libteec.so                     ${ANDROID_SYSTEM_DIR}/lib/
+            rsync -ac ${TEE_DIR}/system/bin/tee_*                          ${ANDROID_SYSTEM_DIR}/bin/
+            rsync -ac ${TEE_DIR}/system/lib/teetz                          ${ANDROID_VENDOR_DIR}/lib/
         elif drm_type_is_without_svp ; then
             cp ${TEE_DIR}/system/vendor/lib/mediadrm/7.0/libwvdrmengine.so ${ANDROID_VENDOR_DIR}/lib/mediadrm/
-            cp ${TEE_DIR}/system/vendor/lib/${CA_DIR}/liboemcrypto.so      ${ANDROID_VENDOR_DIR}/lib/
-            rsync -a ${TEE_DIR}/system/bin/tee-supplicant            ${ANDROID_SYSTEM_DIR}/bin/
-            rsync -a ${TEE_DIR}/system/lib/libteec.so                ${ANDROID_SYSTEM_DIR}/lib/
-            rsync -a ${TEE_DIR}/system/lib/teetz                     ${ANDROID_VENDOR_DIR}/lib/
+            cp ${TEE_DIR}/system/vendor/lib/7.0/liboemcrypto.so            ${ANDROID_VENDOR_DIR}/lib/
+            cp ${TEE_DIR}/system/vendor/lib/mediadrm/7.0/libPlayReadyDrmCryptoPlugin.so ${ANDROID_VENDOR_DIR}/lib/mediadrm/
+            rsync -ac ${TEE_DIR}/system/bin/tee-supplicant                 ${ANDROID_SYSTEM_DIR}/bin/
+            rsync -ac ${TEE_DIR}/system/lib/libteec.so                     ${ANDROID_SYSTEM_DIR}/lib/
+            rsync -ac ${TEE_DIR}/system/lib/teetz                          ${ANDROID_VENDOR_DIR}/lib/
         else
             return 3
         fi

@@ -26,9 +26,9 @@ function image_device_tree_name_preapre()
     config_get IMAGE_TARGET_BOARD   || return 2
     config_get IMAGE_LAYOUT_TYPE    || return 3
     config_get IMAGE_DRAM_SIZE      || return 4
-    
+
     config_get CA_TYPE none
-    
+
     case "$IMAGE_TARGET_CHIP" in
         phoenix)
             DTB_PREFIX=rtd-119x
@@ -75,6 +75,17 @@ function image_device_tree_name_preapre()
                     ;;
             esac
             ;;
+        hank)
+            case "$IMAGE_TARGET_BOARD" in
+                reddiscs | pymparticle )
+                    DTB_PREFIX=rtd-1319
+                    ;;
+                *)
+                    echo -e "$0 \033[47;31mUnknown IMAGE_TARGET_BOARD($IMAGE_TARGET_BOARD) \033[0m"
+                    exit 1
+                    ;;
+            esac
+            ;;
     esac
 
     ORIGIN_DTS_NAME=$DTB_PREFIX-$IMAGE_TARGET_BOARD-$IMAGE_DRAM_SIZE
@@ -97,6 +108,8 @@ function image_device_tree_name_preapre()
 	#if [ "${VMX_TYPE}" == "ultra" ] && vmx_is_drm_enable; then
     if [ "${VMX_TYPE}" == "ultra" ] && vmx_is_drm_enable && drm_type_is_with_svp; then
         RESCUE_DTS_NAME=$DTB_PREFIX-qa-rescue-vmx
+    elif drm_type_is_with_svp && ca_is_nocs_enable ; then
+        RESCUE_DTS_NAME=$DTB_PREFIX-qa-rescue-melon-tee
     elif drm_type_is_with_svp ; then
         RESCUE_DTS_NAME=$DTB_PREFIX-qa-rescue-tee
     else
@@ -140,12 +153,13 @@ function image_device_tree_name_preapre()
         ORIGIN_DTS_NAME=$DTB_PREFIX-$IMAGE_TARGET_BOARD-$IMAGE_DRAM_SIZE.SATA
     fi
 
-    #if vmx_is_enable_ca_control ; then	
+    #if vmx_is_enable_ca_control ; then
     if vmx_is_drm_enable ; then
         VMX_DTS_NAME=${ORIGIN_DTS_NAME}-stb
         file=`kernel_device_tree_dir_get`/${VMX_DTS_NAME}.dts
         [ -e "$file" ] && ORIGIN_DTS_NAME=${VMX_DTS_NAME}
     fi
+
 
     if drm_type_is_with_svp ; then
         TEE_DTS_NAME=${ORIGIN_DTS_NAME}-tee
@@ -156,6 +170,7 @@ function image_device_tree_name_preapre()
         file=`kernel_device_tree_dir_get`/${TEE_DTS_NAME}.dts
         [ -e "$file" ] && ORIGIN_DTS_NAME=${TEE_DTS_NAME}
     fi
+
     if drm_type_is_without_svp ; then
         TEE_DTS_NAME=${ORIGIN_DTS_NAME}-tee
         #if vmx_is_enable_ca_control ; then
@@ -184,16 +199,12 @@ function image_device_tree_name_preapre()
     case "$CA_TYPE" in
         nocs32)
             DTB_CA_TYPE=melon
+            ORIGIN_DTS_NAME=$ORIGIN_DTS_NAME-$DTB_CA_TYPE
             ;;
         *)
-            DTB_CA_TYPE=
             ;;
     esac
-    
-    if [ "$DTB_CA_TYPE" != "" ] ; then
-        ORIGIN_DTS_NAME=$ORIGIN_DTS_NAME-$DTB_CA_TYPE
-    fi
-    
+
     export ORIGIN_DTS_NAME
     export RESCUE_DTS_NAME
     return 0
@@ -223,6 +234,9 @@ function image_origin_dtbo_get()
             ;;
         thor)
             DTBO_NAME=rtd-16xx
+            ;;
+        hank)
+            DTBO_NAME=rtd-13xx
             ;;
     esac
     file=`kernel_device_tree_dir_get`/dtbo/${DTBO_NAME}.dtboimg
@@ -389,7 +403,20 @@ function image_bootloader_copy()
 
     if [ "$IMAGE_TARGET_CHIP" = "thor" ]; then
         pushd $des_dir
-            bootcode_dir=`bootcode_lk_dir_get`/tools/$LK_FLASH_WRITER_NV_FOLDER/Bind
+            if [ "$IMAGE_CHIP_REVISION" = "A00" ]; then
+                bootcode_dir=`bootcode_lk_dir_get`/tools/$LK_FLASH_WRITER_NV_FOLDER/Bind
+            else
+                bootcode_dir=`bootcode_lk_dir_get`/tools/$LK_FLASH_WRITER_NV_A01_FOLDER/Bind
+            fi
+            cp $bootcode_dir/uda_emmc.bind.bin $bootcode_dir/boot_emmc.bind.bin ./
+            tar cvf bootloader_lk.tar uda_emmc.bind.bin boot_emmc.bind.bin
+            rm uda_emmc.bind.bin boot_emmc.bind.bin
+        popd
+    elif [ "$IMAGE_TARGET_CHIP" = "hank" ]; then
+        pushd $des_dir
+            if [ "$IMAGE_CHIP_REVISION" = "A00" ]; then
+                bootcode_dir=`bootcode_lk_dir_get`/tools/$LK_FLASH_WRITER_HANK_FOLDER/Bind
+            fi
             cp $bootcode_dir/uda_emmc.bind.bin $bootcode_dir/boot_emmc.bind.bin ./
             tar cvf bootloader_lk.tar uda_emmc.bind.bin boot_emmc.bind.bin
             rm uda_emmc.bind.bin boot_emmc.bind.bin
@@ -435,6 +462,7 @@ function image_config_prepare()
     IMAGE_CUSTOM_BOOTLOGO_LIST="$IMAGE_CUSTOM_BOOTLOGO_DEFAULT qa_supplement/logo/bootfile-android.image qa_supplement/logo/bootfile-androidtv.image"
 
     IMAGE_TARGET_CHIP_LIST=
+    list_add IMAGE_TARGET_CHIP_LIST hank
     list_add IMAGE_TARGET_CHIP_LIST thor
     list_add IMAGE_TARGET_CHIP_LIST hercules
     list_add IMAGE_TARGET_CHIP_LIST kylin
@@ -480,6 +508,11 @@ function image_config_prepare()
             list_add IMAGE_TARGET_BOARD_LIST megingjord
             DEFAULT_TARGET_BOARD=mjolnir
             ;;
+        hank)
+            list_add IMAGE_TARGET_BOARD_LIST reddiscs
+            list_add IMAGE_TARGET_BOARD_LIST pymparticle
+            DEFAULT_TARGET_BOARD=pymparticle
+            ;;
         *)
             echo -e "$0 \033[47;31mERROR! IMAGE_TARGET_CHIP($IMAGE_TARGET_CHIP) not found!\033[0m"
             exit 1
@@ -503,6 +536,11 @@ function image_config_prepare()
             DEFAULT_CHIP_REVISION=A00
             ;;
         thor)
+            list_add IMAGE_CHIP_REVISION_LIST A00
+            list_add IMAGE_CHIP_REVISION_LIST A01
+            DEFAULT_CHIP_REVISION=A01
+            ;;
+        hank)
             list_add IMAGE_CHIP_REVISION_LIST A00
             DEFAULT_CHIP_REVISION=A00
             ;;
@@ -576,7 +614,7 @@ function image_checkout_config()
             phoenix)
                 IMAGE_CHECKOUT_BRANCH_LIST_DEFAULT=phoenix
                 ;;
-            kylin | hercules | thor)
+            kylin | hercules | thor | hank)
                 case "$MANIFEST_BRANCH" in
                     origin/phoenix-mm-6.0.0-b/trunk-6.0.0_r1-b/kernel-4.1.7_RTD1295_WD_NAS-20160730 | origin/phoenix-mm-6.0.0-b/WDBranch-20161014)
                         IMAGE_CHECKOUT_BRANCH_LIST_DEFAULT=image_file_creator.CustBranch-160819
@@ -744,9 +782,9 @@ function image_sync()
 			fi
 			;;
 	esac
-    ERR=$?	
+    ERR=$?
     popd
-	
+
     return $ERR;
 }
 
@@ -830,7 +868,7 @@ function image_prepare()
         return 2
     fi
 
-#    [ -d $IMAGEDIR ] || build_cmd image_checkout
+    [ -d $IMAGEDIR ] || build_cmd image_checkout
     pushd $PACKAGE_DIR > /dev/null
 	if ! vmx_is_in_release_mode; then
         [ -e root       ] && rm -rf root
@@ -893,7 +931,7 @@ function image_prepare()
             > data/null_file
             > cache/null_file
         fi
-	
+
 	if ! vmx_is_in_release_mode; then
         KUIMAGE=`kernel_image_get`
         if [ -e $KUIMAGE ]; then
@@ -906,7 +944,7 @@ function image_prepare()
             #APPEND_BYTE=`expr 6 \* 1024 \* 1024  - $SEEK_BYTE`
             #dd if=/dev/zero of=$IMAGE_LAYOUT_TYPE.uImage conv=notrunc oflag=append bs=$APPEND_BYTE count=1 > /dev/null 2>&1
         fi
-		
+
 		GOLD_KUIMAGE=`kernel_dir_get`/golden_img/Image
 		if [ -e $GOLD_KUIMAGE ] && [ "$SHRINK_GOLDEN_IMG" == "true" ]; then
             echo copy GOLD_KUIMAGE:$GOLD_KUIMAGE
@@ -965,7 +1003,7 @@ function image_prepare()
             echo "******* Since android-9.0, copy kernel module before build android. No modules copied here *******"
         fi
       fi
-       
+
         if hdcp_tx_tee_en; then
                 hdcp_tx_copy_ta
         fi
@@ -973,13 +1011,13 @@ function image_prepare()
         if vmx_is_drm_enable ; then
 		    if [ "${VMX_TYPE}" == "ultra" ] && drm_type_is_with_svp  ; then
 				vmx_ca_environment
-		    elif [ "${VMX_TYPE}" == "advance" ] ; then 
+		    elif [ "${VMX_TYPE}" == "advance" ] ; then
 			    vmx_ca_environment
-		    fi 
+		    fi
         fi
-		
-		
-		if config_get_true VMX_CONFIG ; then 
+
+
+		if config_get_true VMX_CONFIG ; then
 			SYSTEMDIR=${TOPDIR}/software_Phoenix_RTK/system
 			PACKAGE="package5"
 			if [ -e "${SYSTEMDIR}" ]; then
@@ -1005,7 +1043,7 @@ function image_prepare()
         else
             echo "******* Since android-9.0, copy dailybuild prebuilt binaries in android, not here *******"
         fi
-        
+
         # prepare nocs exe
         #REMINDER: shall be modified in Android 9 and RPCServer_PKG_EXT-03.03.04
         if ca_is_nocs_enable ; then
@@ -1017,8 +1055,11 @@ function image_prepare()
             cp -rfv ${SYSTEMDIR}/src/Drivers/dal/test/dif/dif $ANDROID_VENDOR/bin
             cp -rfv ${SYSTEMDIR}/src/Drivers/dal/test/dif/serverIP.config $ANDROID_VENDOR/etc
             cp -rfv ${SYSTEMDIR}/src/Drivers/dal/test/dif/scripts/hw_reset.sh $ANDROID_VENDOR/etc
+		if melon_is_drm_enable ; then
+			melon_ca_environment
+		fi
         fi
-        
+
         config_get IMAGE_CUSTOM_BOOTANIM
         BOOTANIM_PATH=$PACKAGE_SYSTEM/media/bootanimation.zip
         if [ "$IMAGE_CUSTOM_BOOTANIM" == "default" ]; then
@@ -1166,6 +1207,34 @@ function image_adjust_partition()
     sed -i "s/^part = vbmeta \(.*\)/#part = vbmeta \1/" $PARTITION_TABLE
 }
 
+function image_adjust_swap()
+{
+    if [ "$IMAGE_LAYOUT_SIZE" == "4gb" ]; then
+        LAYOUT_DIR=rtk_generic_emmc
+    elif [ "$IMAGE_LAYOUT_SIZE" == "8gb" ]; then
+        LAYOUT_DIR=rtk_generic_emmc_8gb
+    elif [ "$IMAGE_LAYOUT_SIZE" == "16gb" ]; then
+        LAYOUT_DIR=rtk_generic_emmc_16gb
+    elif [ "$IMAGE_LAYOUT_SIZE" == "32gb" ]; then
+        LAYOUT_DIR=rtk_generic_emmc_32gb
+    elif [ "$IMAGE_LAYOUT_SIZE" == "GPT_HDD" ]; then
+        LAYOUT_DIR=rtk_generic_sata
+    else
+        return 1
+    fi
+
+    PARTITION_TABLE=$PACKAGE_DIR/customer/$LAYOUT_DIR/partition_GPT.txt
+    if [ android_is_low_ram ]; then
+        echo enable emmc swap for low ram device...
+        sed -i "s/^#part = swap \(.*\)/part = swap \1/" $PARTITION_TABLE
+    else
+        echo disable emmc swap...
+        sed -i "s/^part = swap \(.*\)/#part = swap \1/" $PARTITION_TABLE
+    fi
+
+    return 0
+}
+
 function image_build()
 {
     image_gen_version
@@ -1181,6 +1250,8 @@ function image_build()
         build_cmd image_update_partition_size
     elif [ $ANDROID_VERSION -eq 8 ]; then
         build_cmd image_adjust_partition
+    elif [ $ANDROID_VERSION -ge 9 ]; then
+        build_cmd image_adjust_swap
     fi
 
     if [  $ANDROID_VERSION -ge 9 ] && [ "$IMAGE_INSTALL_DTB" = "1" ]; then
@@ -1248,12 +1319,19 @@ function image_build()
                 A00)
                     chip_rev=1
                     ;;
-                A01)
+                *)
                     chip_rev=2
                     ;;
             esac
             ;;
         thor)
+            case "$IMAGE_CHIP_REVISION" in
+                A00)
+                    chip_rev=1
+                    ;;
+            esac
+            ;;
+        hank)
             case "$IMAGE_CHIP_REVISION" in
                 A00)
                     chip_rev=1

@@ -9,8 +9,10 @@ source $SCRIPTDIR/env_hdcp.sh
 source $SCRIPTDIR/env_secure_func.sh
 source $SCRIPTDIR/env_android.sh
 source $SCRIPTDIR/env_vmx.sh
-config_get GERRIT_MANIFEST
 KERNELDIR=$TOPDIR/linux-kernel
+
+config_get GERRIT_MANIFEST
+
 GOLDEN_OBSOLETE_CONFIG=$PLATFORMDIR/system/configs/golden_obsolete_config
 GOLDEN_IMG_DIR=$KERNELDIR/golden_img
 
@@ -30,6 +32,17 @@ function kernel_version()
         export KERNEL_PATCHLEVEL
     fi
 }
+
+function kernel_version_is_4p14()
+{
+    kernel_version > /dev/null
+    if [ "$KERNEL_VERSION" == "VERSION = 4" ] && [ "$KERNEL_PATCHLEVEL" == "PATCHLEVEL = 14"  ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 
 function kernel_version_is_3p10()
 {
@@ -129,6 +142,24 @@ function kernel_device_tree_dir_get()
             thor)
                 dir=`kernel_boot_dir_get`/dts/$KERNEL_TARGET_VENDOR/rtd16xx
                 ;;
+            hank)
+                dir=`kernel_boot_dir_get`/dts/$KERNEL_TARGET_VENDOR/rtd13xx
+                ;;
+            *)
+                exit 1
+                ;;
+        esac
+    elif kernel_version_is_4p14 ; then
+        case "$KERNEL_TARGET_CHIP" in
+            hercules)
+                dir=`kernel_boot_dir_get`/dts/$KERNEL_TARGET_VENDOR/rtd139x
+                ;;
+            thor)
+                dir=`kernel_boot_dir_get`/dts/$KERNEL_TARGET_VENDOR/rtd16xx
+                ;;
+            hank)
+                dir=`kernel_boot_dir_get`/dts/$KERNEL_TARGET_VENDOR/rtd13xx
+                ;;
             *)
                 exit 1
                 ;;
@@ -205,7 +236,7 @@ function kernel_init()
 {
     [ ! -d "$KERNELDIR" ] && mkdir $KERNELDIR
     pushd $KERNELDIR > /dev/null
-    repo init -u $GERRIT_MANIFEST -b master -m linux-kernel.xml 
+    repo init -u $GERRIT_MANIFEST -b master -m linux-kernel.xml $REPO_PARA
     popd > /dev/null
     return 0
 }
@@ -246,9 +277,9 @@ function kernel_config()
     config_get_menu TARGET_CHIP_ARCH TARGET_CHIP_ARCH_LIST arm64
 
     if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
-        KERNEL_TARGET_CHIP_LIST="kylin hercules thor"
+        KERNEL_TARGET_CHIP_LIST="kylin hercules thor hank"
     elif [ "$TARGET_CHIP_ARCH" = "arm32" ]; then
-        KERNEL_TARGET_CHIP_LIST="phoenix kylin hercules thor"
+        KERNEL_TARGET_CHIP_LIST="phoenix kylin hercules thor hank"
     fi
 
     if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
@@ -264,7 +295,7 @@ function kernel_config()
     unset KERNEL_DEF_CONFIG
 
     if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
-        KERNEL_TARGET_CHIP_LIST="kylin hercules thor"
+        KERNEL_TARGET_CHIP_LIST="kylin hercules thor hank"
         if [ "$KERNEL_TARGET_CHIP" = "kylin" ]; then
             LINUX_KERNEL_VERSION_LIST="kernel_4.1 kernel_4.4 kernel_4.9"
             DEFAULT_KERNEL="kernel_4.1"
@@ -274,12 +305,12 @@ function kernel_config()
         fi
         config_get_menu LINUX_KERNEL_VERSION LINUX_KERNEL_VERSION_LIST $DEFAULT_KERNEL
     elif [ "$TARGET_CHIP_ARCH" = "arm32" ]; then
-        KERNEL_TARGET_CHIP_LIST="phoenix kylin hercules thor"
+        KERNEL_TARGET_CHIP_LIST="phoenix kylin hercules thor hank"
         if [ "$KERNEL_TARGET_CHIP" = "phoenix" ]; then
             LINUX_KERNEL_VERSION_LIST="kernel_3.10 kernel_4.9"
             DEFAULT_KERNEL="kernel_3.10"
         else
-            LINUX_KERNEL_VERSION_LIST="kernel_4.9"
+            LINUX_KERNEL_VERSION_LIST="kernel_4.9 kernel_4.14"
             DEFAULT_KERNEL="kernel_4.9"
         fi
         config_get_menu LINUX_KERNEL_VERSION LINUX_KERNEL_VERSION_LIST $DEFAULT_KERNEL
@@ -327,6 +358,18 @@ function kernel_config()
                             DEFAULT_KERNEL_CONFIG=rtd139x_aarch32_android_emmc_defconfig
                         popd > /dev/null
                     fi
+		elif [ "$LINUX_KERNEL_VERSION" = "kernel_4.14" ]; then
+                    if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
+                        pushd $PLATFORMDIR/system/configs/kernel4.14 > /dev/null
+                            KERNEL_DEF_CONFIG_LIST=`ls rtd139x_*_defconfig`
+                            DEFAULT_KERNEL_CONFIG=rtd139x_android_emmc_defconfig
+                        popd > /dev/null
+                    else
+                        pushd $PLATFORMDIR/system/configs/kernel4.14 > /dev/null
+                            KERNEL_DEF_CONFIG_LIST=`ls rtd139x_aarch32_*_defconfig`
+                            DEFAULT_KERNEL_CONFIG=rtd139x_aarch32_android_emmc_defconfig
+                        popd > /dev/null
+                    fi
                 fi
             elif [ "$KERNEL_TARGET_CHIP" = "thor" ]; then
                 if [ "$LINUX_KERNEL_VERSION" = "kernel_4.9" ]; then
@@ -338,6 +381,44 @@ function kernel_config()
                     else
                         pushd $PLATFORMDIR/system/configs/kernel4.9 > /dev/null
                             KERNEL_DEF_CONFIG_LIST=`ls rtd16xx_aarch32_*_defconfig`
+                            DEFAULT_KERNEL_CONFIG=rtd16xx_aarch32_android_emmc_defconfig
+                        popd > /dev/null
+                    fi
+		elif [ "$LINUX_KERNEL_VERSION" = "kernel_4.14" ]; then
+		    if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
+                        pushd $PLATFORMDIR/system/configs/kernel4.14 > /dev/null
+                            KERNEL_DEF_CONFIG_LIST=`ls rtd16xx_*_defconfig`
+                            DEFAULT_KERNEL_CONFIG=rtd16xx_android-8.0_emmc_defconfig
+                        popd > /dev/null
+                    else
+                        pushd $PLATFORMDIR/system/configs/kernel4.14 > /dev/null
+                            KERNEL_DEF_CONFIG_LIST=`ls rtd16xx_aarch32_*_defconfig`
+                            DEFAULT_KERNEL_CONFIG=rtd16xx_aarch32_android_emmc_defconfig
+                        popd > /dev/null
+                    fi
+                fi
+            elif [ "$KERNEL_TARGET_CHIP" = "hank" ]; then
+                if [ "$LINUX_KERNEL_VERSION" = "kernel_4.9" ]; then
+                    if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
+                        pushd $PLATFORMDIR/system/configs/kernel4.9 > /dev/null
+                            KERNEL_DEF_CONFIG_LIST=`ls rtd13xx_*_defconfig`
+                            DEFAULT_KERNEL_CONFIG=rtd13xx_android-8.0_emmc_defconfig
+                        popd > /dev/null
+                    else
+                        pushd $PLATFORMDIR/system/configs/kernel4.9 > /dev/null
+                            KERNEL_DEF_CONFIG_LIST=`ls rtd13xx_aarch32_*_defconfig`
+                            DEFAULT_KERNEL_CONFIG=rtd13xx_aarch32_android_emmc_defconfig
+                        popd > /dev/null
+                    fi
+		elif [ "$LINUX_KERNEL_VERSION" = "kernel_4.14" ]; then
+                    if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
+                        pushd $PLATFORMDIR/system/configs/kernel4.14 > /dev/null
+                            KERNEL_DEF_CONFIG_LIST=`ls rtd13xx_*_defconfig`
+                            DEFAULT_KERNEL_CONFIG=rtd16xx_android-8.0_emmc_defconfig
+                        popd > /dev/null
+                    else
+                        pushd $PLATFORMDIR/system/configs/kernel4.14 > /dev/null
+                            KERNEL_DEF_CONFIG_LIST=`ls rtd13xx_aarch32_*_defconfig`
                             DEFAULT_KERNEL_CONFIG=rtd16xx_aarch32_android_emmc_defconfig
                         popd > /dev/null
                     fi
@@ -397,6 +478,18 @@ function kernel_config()
                                 DEFAULT_KERNEL_CONFIG=rtd139x_aarch32_android_emmc_defconfig
                             popd > /dev/null
                         fi
+		    elif [ "$LINUX_KERNEL_VERSION" = "kernel_4.14" ]; then
+                        if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
+                            pushd kernel4.14 > /dev/null
+                                KERNEL_DEF_CONFIG_LIST=`ls rtd139x_*_defconfig`
+                                DEFAULT_KERNEL_CONFIG=rtd139x_android_emmc_defconfig
+                            popd > /dev/null
+                        else
+                            pushd kernel4.14 > /dev/null
+                                KERNEL_DEF_CONFIG_LIST=`ls rtd139x_aarch32_*_defconfig`
+                                DEFAULT_KERNEL_CONFIG=rtd139x_aarch32_android_emmc_defconfig
+                            popd > /dev/null
+                        fi
                     fi
                 elif [ "$KERNEL_TARGET_CHIP" = "thor" ]; then
                     if [ "$LINUX_KERNEL_VERSION" = "kernel_4.9" ]; then
@@ -409,6 +502,44 @@ function kernel_config()
                             pushd kernel4.9 > /dev/null
                                 KERNEL_DEF_CONFIG_LIST=`ls rtd16xx_aarch32_*_defconfig`
                                 DEFAULT_KERNEL_CONFIG=rtd16xx_aarch32_android_emmc_defconfig
+                            popd > /dev/null
+                        fi
+		    elif [ "$LINUX_KERNEL_VERSION" = "kernel_4.14" ]; then
+                        if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
+                            pushd kernel4.14 > /dev/null
+                                KERNEL_DEF_CONFIG_LIST=`ls rtd16xx_*_defconfig`
+                                DEFAULT_KERNEL_CONFIG=rtd139x_android_emmc_defconfig
+                            popd > /dev/null
+                        else
+                            pushd kernel4.14 > /dev/null
+                                KERNEL_DEF_CONFIG_LIST=`ls rtd16xx_aarch32_*_defconfig`
+                                DEFAULT_KERNEL_CONFIG=rtd139x_aarch32_android_emmc_defconfig
+                            popd > /dev/null
+                        fi
+                    fi
+                elif [ "$KERNEL_TARGET_CHIP" = "hank" ]; then
+                    if [ "$LINUX_KERNEL_VERSION" = "kernel_4.9" ]; then
+                        if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
+                            pushd kernel4.9 > /dev/null
+                                KERNEL_DEF_CONFIG_LIST=`ls rtd13xx_*_defconfig`
+                                DEFAULT_KERNEL_CONFIG=rtd13xx_android-8.0_emmc_defconfig
+                            popd > /dev/null
+                        else
+                            pushd kernel4.9 > /dev/null
+                                KERNEL_DEF_CONFIG_LIST=`ls rtd13xx_aarch32_*_defconfig`
+                                DEFAULT_KERNEL_CONFIG=rtd13xx_aarch32_android_emmc_defconfig
+                            popd > /dev/null
+                        fi
+		    elif [ "$LINUX_KERNEL_VERSION" = "kernel_4.14" ]; then
+                        if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
+                            pushd kernel4.14 > /dev/null
+                                KERNEL_DEF_CONFIG_LIST=`ls rtd13xx_*_defconfig`
+                                DEFAULT_KERNEL_CONFIG=rtd139x_android_emmc_defconfig
+                            popd > /dev/null
+                        else
+                            pushd kernel4.14 > /dev/null
+                                KERNEL_DEF_CONFIG_LIST=`ls rtd13xx_aarch32_*_defconfig`
+                                DEFAULT_KERNEL_CONFIG=rtd139x_aarch32_android_emmc_defconfig
                             popd > /dev/null
                         fi
                     fi
@@ -521,11 +652,23 @@ function kernel_config_check_vmx()
             sed -i -- 's/rtd-1295-vmx.dtsi/rtd-1295.dtsi/g' `image_rescue_dts_get`
 	
 	    kernel_merge_config .config android/configs/vmx-ultra-boot-disable.cfg
-
-	    if vmx_is_drm_enable; then
-	        kernel_merge_config .config android/configs/vmx-drm.cfg
+	    if vmx_config_is_enable; then
+	        if drm_type_is_with_svp; then
+	            kernel_merge_config .config android/configs/vmx-drm.cfg
+	        else
+		    kernel_merge_config .config android/configs/vmx-drm-disable.cfg
+	        fi
+	    else
+		kernel_merge_config .config android/configs/vmx-drm-disable.cfg
 	    fi
         fi
+	
+	if vmx_config_is_enable; then
+	    if vmx_hardening_is_enable; then
+	        kernel_merge_config .config android/configs/linux-hardening.cfg
+	    fi
+        fi	
+
     popd > /dev/null
     return 0
 }
@@ -588,6 +731,8 @@ function kernel_config_check()
             diff -u $PLATFORMDIR/system/configs/kernel4.4/$KERNEL_DEF_CONFIG $KERNELDIR/.config
         elif kernel_version_is_4p9 ; then
             diff -u $PLATFORMDIR/system/configs/kernel4.9/$KERNEL_DEF_CONFIG $KERNELDIR/.config
+        elif kernel_version_is_4p14 ; then
+            diff -u $PLATFORMDIR/system/configs/kernel4.14/$KERNEL_DEF_CONFIG $KERNELDIR/.config
         else
             diff -u $PLATFORMDIR/system/configs/$KERNEL_DEF_CONFIG $KERNELDIR/.config
         fi
@@ -599,6 +744,8 @@ function kernel_config_check()
             cp -f $PLATFORMDIR/system/configs/kernel4.4/$KERNEL_DEF_CONFIG $KERNELDIR/.config || return 1
         elif kernel_version_is_4p9 ; then
             cp -f $PLATFORMDIR/system/configs/kernel4.9/$KERNEL_DEF_CONFIG $KERNELDIR/.config || return 1
+        elif kernel_version_is_4p14 ; then
+            cp -f $PLATFORMDIR/system/configs/kernel4.14/$KERNEL_DEF_CONFIG $KERNELDIR/.config || return 1
         else
             cp -f $PLATFORMDIR/system/configs/$KERNEL_DEF_CONFIG $KERNELDIR/.config || return 1
         fi
@@ -730,6 +877,13 @@ function kernel_external_modules_list_get()
         else
             PARAGONDIR=`platform_dir_get`/system/src/external/paragon/lke_9.6.4_b5
         fi
+    elif kernel_version_is_4p14 ; then
+        KERNEL_VERSION_EX="kernel_4.14"
+        if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
+            PARAGONDIR=`platform_dir_get`/system/src/external/paragon/lke_9.6.4_b14
+        else
+            PARAGONDIR=`platform_dir_get`/system/src/external/paragon/lke_9.6.4_b5
+        fi
     else
         KERNEL_VERSION_EX="kernel_3.10"
         PARAGONDIR=`platform_dir_get`/system/src/external/paragon
@@ -840,6 +994,13 @@ function kernel_check_toolchain()
                  KERNELTOOLCHAIN_VERSION=asdk-6.4.1-a53-EL-4.9-g2.26-a32nut-180831
              fi
             ;;
+        hank)
+             if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
+                 KERNELTOOLCHAIN_VERSION=asdk-6.4.1-a55-EL-4.9-g2.26-a64nut-180426
+             else
+                 KERNELTOOLCHAIN_VERSION=asdk-6.4.1-a53-EL-4.9-g2.26-a32nut-180831
+             fi
+            ;;
     esac
 
     [ "$KERNELTOOLCHAIN_VERSION" = "" ] && return 2
@@ -898,8 +1059,22 @@ function kernel_prepare_parameters()
             fi
             export KERNEL_IMAGE=Image
             export KERNEL_TARGET_VENDOR="realtek"
+	    vmx_hardening_is_enable     && export ENABLE_VMX_HARDENING=YES || export ENABLE_VMX_HARDENING=NO
             ;;
         "thor")
+             if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
+                 export ARCH=arm64
+                 export CROSS_COMPILE="ccache asdk64-linux-"
+                 export _CROSS="ccache asdk64-linux-"
+             else
+                 export ARCH=arm
+                 export CROSS_COMPILE="ccache arm-linux-gnueabi-"
+                 export _CROSS="ccache arm-linux-gnueabi-"
+             fi
+            export KERNEL_IMAGE=Image
+            export KERNEL_TARGET_VENDOR="realtek"
+            ;;
+        "hank")
              if [ "$TARGET_CHIP_ARCH" = "arm64" ]; then
                  export ARCH=arm64
                  export CROSS_COMPILE="ccache asdk64-linux-"

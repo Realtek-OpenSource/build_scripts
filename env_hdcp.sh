@@ -4,6 +4,8 @@ ENV_HDCP_SOURCE=1
 
 [ "$SCRIPTDIR" = "" ] && SCRIPTDIR=$PWD
 source $SCRIPTDIR/build_prepare.sh
+source $SCRIPTDIR/env_qa_sub.sh
+source $SCRIPTDIR/env_vmx.sh
 ERR=0
 
 function hdcp_config()
@@ -123,26 +125,31 @@ function hdcp_rx_tee_en()
 
 function hdcp_tx_copy_ta()
 {
-    if [ "`android_sdk_version_get |sed 's/\..*$//g'`" -ge "8" ]; then
-        ANDROID_SYSTEM_DIR=`android_vendor_dir_get`
-    else
-        ANDROID_SYSTEM_DIR=`android_system_dir_get`
+    if ! vmx_config_is_enable; then
+        config_get KERNEL_TARGET_CHIP
+
+        local copy_ta_src=`qa_sub_dir_get`/hdcp/${KERNEL_TARGET_CHIP}
+        if [ ! -d "${copy_ta_src}" ]; then
+            echo "hdcp_tx_copy_ta : ${copy_ta_src} not found!"
+            return 1
+        fi
+
+        local copy_ta_to=
+        if [ "`android_sdk_version_get |sed 's/\..*$//g'`" -ge "8" ]; then
+            copy_ta_to=`android_vendor_dir_get`/lib/teetz
+        else
+            copy_ta_to=`android_system_dir_get`/lib/teetz
+        fi
+        [ ! -d "${copy_ta_to}" ] && mkdir -p ${copy_ta_to}
+
+        cp -rf ${copy_ta_src}/hdcp14_tx/*.ta*    ${copy_ta_to}/
+        cp -rf ${copy_ta_src}/hdcp2.2_tx/*.ta*   ${copy_ta_to}/
+
+        if hdcp_rx_tee_en; then
+            cp -rf ${copy_ta_src}/hdcp14_rx/*.ta*    ${copy_ta_to}/
+            cp -rf ${copy_ta_src}/hdcp2.2_rx/*.ta*   ${copy_ta_to}/
+        fi
     fi
 
-    config_get KERNEL_TARGET_CHIP
-    config_get ANDROID_PRODUCT
-
-    if [ "$KERNEL_TARGET_CHIP" = "hercules" ] || [ ${ANDROID_PRODUCT:0:12} = "rtk_hercules" ]; then
-        QA_SUPPLEMENT_HDCP=${SCRIPTDIR}/qa_supplement/hdcp/hercules/
-    elif [ "$KERNEL_TARGET_CHIP" = "kylin" ] || [ ${ANDROID_PRODUCT:0:9} = "rtk_kylin" ]; then
-        QA_SUPPLEMENT_HDCP=${SCRIPTDIR}/qa_supplement/hdcp/kylin/
-    else
-        QA_SUPPLEMENT_HDCP=${SCRIPTDIR}/qa_supplement/hdcp/kylin/
-    fi
-
-    if [ "$VMX_CONFIG" = "false" ] || [ "$KERNEL_TARGET_CHIP" = "kylin" ]; then
-	[ ! -d "${ANDROID_SYSTEM_DIR}/lib/teetz" ] && mkdir -p ${ANDROID_SYSTEM_DIR}/lib/teetz
-	cp -rf ${QA_SUPPLEMENT_HDCP}/hdcp14_tx/*.ta* ${ANDROID_SYSTEM_DIR}/lib/teetz/
-	cp -rf ${QA_SUPPLEMENT_HDCP}/hdcp2.2_tx/*.ta* ${ANDROID_SYSTEM_DIR}/lib/teetz/
-    fi
+    return 0
 }
